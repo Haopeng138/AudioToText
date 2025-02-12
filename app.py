@@ -3,7 +3,6 @@ from transformers import pipeline
 import torch
 import time
 import os
-import pyperclip
 # Set the page config at the top
 st.set_page_config(page_title="Audio-to-Text Transcription",
                    layout="centered", initial_sidebar_state="auto")
