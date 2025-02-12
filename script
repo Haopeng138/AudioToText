@@ -1,0 +1,13 @@
+#!/bin/bash
+NAME=AudioToText
+DIR=/home/ubuntu/AudioToText
+USER=ubuntu
+GROUP=ubuntu
+WORKERS=3
+VENV=$DIR/venv/bin/activate
+#BIND=unix:$DIR/run/gunicorn.sock
+LOG_LEVEL=error
+
+cd $DIR
+source $VENV
+exec streamlit run app.py --server.baseUrlPath=/audiototext 
