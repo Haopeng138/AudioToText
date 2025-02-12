@@ -1,0 +1,5 @@
+venv
+temp_dir
+.DS_Store
+.vscode
+resource
