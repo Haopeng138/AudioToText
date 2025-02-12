@@ -38,8 +38,11 @@ protobuf==5.29.3
 pyarrow==19.0.0
 pydeck==0.9.1
 pydub==0.25.1
+pyee==12.1.1
 Pygments==2.19.1
+pyperclip==1.9.0
 python-dateutil==2.9.0.post0
+python-ffmpeg==2.0.12
 pytz==2025.1
 PyYAML==6.0.2
 referencing==0.36.2
@@ -63,5 +66,6 @@ transformers==4.48.3
 typing_extensions==4.12.2
 tzdata==2025.1
 urllib3==2.3.0
+watchdog==6.0.0
 xxhash==3.5.0
 yarl==1.18.3
