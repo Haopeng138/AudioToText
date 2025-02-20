@@ -44,7 +44,7 @@ def main():
     st.audio(uploaded_file)
 
     # Select language and task
-    languages = ['English']  # Choose the source language
+    languages = ['English','Spanish']  # Choose the source language
     task = 'transcribe'  # when you chose translate -> it means translation to english
 
     language = st.selectbox(
