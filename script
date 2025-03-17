@@ -10,4 +10,4 @@ LOG_LEVEL=error
 
 cd $DIR
 source $VENV
-exec streamlit run app.py --server.baseUrlPath=/audiototext 
+exec streamlit run app.py --server.baseUrlPath=/audiototext --server.port 8501
