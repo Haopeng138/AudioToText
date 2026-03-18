@@ -67,6 +67,13 @@ def main():
                 with open(temp_file_path, "wb") as f:
                     f.write(uploaded_file.getbuffer())
 
+                # Convert m4a to wav if needed
+                if uploaded_file.name.lower().endswith(".m4a"):
+                    wav_path = temp_file_path.replace(".m4a", ".wav")
+                    os.system(f'ffmpeg -y -i "{temp_file_path}" "{wav_path}"')
+                    os.remove(temp_file_path)
+                    temp_file_path = wav_path
+
                 # Transcribe audio
                 transcription = pipe(temp_file_path, generate_kwargs={
                                      "language": language, "task": task})
