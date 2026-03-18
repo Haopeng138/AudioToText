@@ -1,4 +1,6 @@
+import math
 import os
+import subprocess
 import tempfile
 from pathlib import Path
 
@@ -27,10 +29,6 @@ LANGUAGE_OPTIONS = {
     "Detectar automáticamente": "auto",
     "Español": "es",
     "Inglés": "en",
-    "Francés": "fr",
-    "Alemán": "de",
-    "Italiano": "it",
-    "Portugués": "pt",
 }
 
 
@@ -46,15 +44,57 @@ def save_uploaded_file(uploaded_file) -> str:
         return tmp.name
 
 
-def transcribe_file(file_path: str, model_name: str, language: str, translate_to_english: bool):
-    model = load_model(model_name)
-    task = "translate" if translate_to_english else "transcribe"
+def get_audio_duration(file_path: str) -> float:
+    result = subprocess.run(
+        ["ffprobe", "-v", "error", "-show_entries", "format=duration",
+         "-of", "default=noprint_wrappers=1:nokey=1", file_path],
+        capture_output=True, text=True,
+    )
+    return float(result.stdout.strip())
 
-    options = {"task": task, "fp16": False}
+
+def transcribe_streaming(file_path: str, model_name: str, language: str):
+    """Generator: yields (text_acumulado, segments_acumulados, chunk_actual, total_chunks) por cada trozo."""
+    model = load_model(model_name)
+    options = {"task": "transcribe", "fp16": False}
     if language != "auto":
         options["language"] = language
 
-    return model.transcribe(file_path, **options)
+    duration = get_audio_duration(file_path)
+    chunk_size = 30  # segundos
+    total_chunks = math.ceil(duration / chunk_size)
+
+    all_text = ""
+    all_segments = []
+    detected_language = None
+
+    for idx in range(total_chunks):
+        start = idx * chunk_size
+        suffix = Path(file_path).suffix or ".wav"
+        with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp:
+            chunk_path = tmp.name
+
+        subprocess.run(
+            ["ffmpeg", "-y", "-ss", str(start), "-t", str(chunk_size),
+             "-i", file_path, chunk_path, "-loglevel", "error"],
+            check=True,
+        )
+
+        result = model.transcribe(chunk_path, **options)
+        os.remove(chunk_path)
+
+        if detected_language is None:
+            detected_language = result.get("language", "desconocido")
+
+        chunk_text = result.get("text", "").strip()
+        for seg in result.get("segments", []):
+            adjusted = seg.copy()
+            adjusted["start"] += start
+            adjusted["end"] += start
+            all_segments.append(adjusted)
+
+        all_text = (all_text + " " + chunk_text).strip()
+        yield all_text, all_segments, idx + 1, total_chunks, detected_language
 
 
 def to_srt_time(seconds: float) -> str:
@@ -127,12 +167,6 @@ with col2:
     )
     selected_model = MODEL_OPTIONS[selected_model_label]
 
-translate_to_english = st.checkbox(
-    "Traducir el resultado al inglés",
-    value=False,
-    help="Activa esta opción si quieres el texto en inglés independientemente del idioma original.",
-)
-
 st.divider()
 
 # ── Paso 3: Transcribir ───────────────────────────────────────────────────────
@@ -145,47 +179,48 @@ if source_file is None:
 if st.button("▶️ Iniciar transcripción", type="primary", use_container_width=True):
     temp_path = None
     try:
-        with st.spinner("Analizando el audio… Esto puede tardar unos minutos dependiendo de la duración."):
-            temp_path = save_uploaded_file(source_file)
-            result = transcribe_file(
-                file_path=temp_path,
-                model_name=selected_model,
-                language=selected_language,
-                translate_to_english=translate_to_english,
+        temp_path = save_uploaded_file(source_file)
+
+        st.subheader("Resultado")
+        progress_bar = st.progress(0, text="Iniciando…")
+        live_text = st.empty()
+
+        transcript = ""
+        segments = []
+        detected_language = "desconocido"
+
+        for text, segs, current, total, lang in transcribe_streaming(
+            file_path=temp_path,
+            model_name=selected_model,
+            language=selected_language,
+        ):
+            transcript = text
+            segments = segs
+            detected_language = lang
+            progress = current / total
+            progress_bar.progress(progress, text=f"Trozo {current} / {total}…")
+            live_text.text_area(
+                "Texto transcrito",
+                transcript,
+                height=280,
+                label_visibility="collapsed",
+                key=f"live_{current}",
             )
 
-        transcript = result.get("text", "").strip()
-        detected_language = result.get("language", "desconocido")
-        segments = result.get("segments", [])
-
+        progress_bar.empty()
         st.success("¡Transcripción completada!")
 
         lang_names = {v: k for k, v in LANGUAGE_OPTIONS.items()}
         lang_display = lang_names.get(detected_language, detected_language)
         st.caption(f"Idioma detectado: {lang_display}")
 
-        st.subheader("Resultado")
-        st.text_area("Texto transcrito", transcript, height=280, label_visibility="collapsed")
-
-        col_a, col_b = st.columns(2)
-        with col_a:
-            st.download_button(
-                "⬇️ Descargar como TXT",
-                data=transcript.encode("utf-8"),
-                file_name="transcripcion.txt",
-                mime="text/plain",
-                use_container_width=True,
-            )
-        with col_b:
-            if segments:
-                srt_content = build_srt(segments)
-                st.download_button(
-                    "⬇️ Descargar subtítulos (SRT)",
-                    data=srt_content.encode("utf-8"),
-                    file_name="subtitulos.srt",
-                    mime="text/plain",
-                    use_container_width=True,
-                )
+        st.download_button(
+            "⬇️ Descargar como TXT",
+            data=transcript.encode("utf-8"),
+            file_name="transcripcion.txt",
+            mime="text/plain",
+            use_container_width=True,
+        )
 
     except FileNotFoundError:
         st.error(
