@@ -10,4 +10,4 @@ LOG_LEVEL=error
 
 cd $DIR
 source $VENV
-exec uv run streamlit run app2.py --server.baseUrlPath=/audiototext --server.port 8501
+exec /home/ubuntu/.local/bin/uv run streamlit run app2.py --server.baseUrlPath=/audiototext --server.port 8501
