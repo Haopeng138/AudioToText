@@ -1,0 +1,11 @@
+[project]
+name = "audiototext"
+version = "0.1.0"
+description = "Audio-to-text transcription app using Whisper"
+requires-python = ">=3.10"
+dependencies = [
+    "streamlit",
+    "transformers",
+    "torch",
+    "openai-whisper>=20250625",
+]

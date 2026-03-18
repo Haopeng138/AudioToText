@@ -3,3 +3,4 @@ temp_dir
 .DS_Store
 .vscode
 resource
+.venv
